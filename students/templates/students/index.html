@@ -1,0 +1,132 @@
+{% extends "students/base.html" %}
+{% block title %}{% if selected %}{{ selected.display_name }}{% else %}Student Profiles{% endif %}{% endblock %}
+
+{% block content %}
+<main class="layout">
+
+  <!-- LEFT: list of students -->
+  <aside class="roster" aria-label="Students">
+    <form method="get" class="filters">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search name or student number">
+      <select name="class" onchange="this.form.submit()">
+        <option value="">All classes</option>
+        {% for c in classes %}
+          <option value="{{ c.id }}" {% if class_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <p class="count muted">{{ students|length }} student{{ students|length|pluralize }}</p>
+
+    <ul class="student-list">
+      {% for s in students %}
+        <li>
+          <a href="{% url 'students:profile' s.pk %}{% if q or class_id %}?{% if q %}q={{ q|urlencode }}{% endif %}{% if class_id %}&class={{ class_id }}{% endif %}{% endif %}"
+             class="student-row {% if selected and selected.pk == s.pk %}active{% endif %}">
+            <span class="avatar">{{ s.initials }}</span>
+            <span class="who">
+              <span class="name">{{ s.full_name }}</span>
+              <span class="sub muted">{{ s.student_number }} · {{ s.school_class.name|default:"No class" }}</span>
+            </span>
+            <span class="badge {{ s.status }}">{{ s.get_status_display }}</span>
+          </a>
+        </li>
+      {% empty %}
+        <li class="empty">No students match. Clear the search or pick another class.</li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <!-- RIGHT: selected student's profile -->
+  <section class="profile">
+  {% if selected %}
+    <header class="profile-head">
+      <span class="avatar big">{{ selected.initials }}</span>
+      <div>
+        <h1>{{ selected.display_name }}</h1>
+        <p class="muted">{{ selected.student_number }} · {{ selected.school_class.name|default:"No class assigned" }}</p>
+      </div>
+      <span class="badge {{ selected.status }}">{{ selected.get_status_display }}</span>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="personal" class="active">Personal info</button>
+      <button role="tab" data-tab="background">Background info</button>
+      <button role="tab" data-tab="enrollment">Enrollment</button>
+    </nav>
+
+    <div class="panel active" id="personal">
+      <dl class="facts">
+        <div><dt>Full name</dt><dd>{{ selected.full_name }}</dd></div>
+        <div><dt>Birth date</dt><dd>{{ selected.birth_date|date:"F j, Y" }} ({{ selected.age }} years old)</dd></div>
+        <div><dt>Sex</dt><dd>{{ selected.get_sex_display }}</dd></div>
+        <div><dt>Contact number</dt><dd>{{ selected.contact_number|default:"—" }}</dd></div>
+        <div><dt>Email</dt><dd>{{ selected.email|default:"—" }}</dd></div>
+        <div class="wide"><dt>Address</dt><dd>{{ selected.address|default:"—" }}</dd></div>
+        <div class="wide"><dt>Medical notes</dt><dd>{{ selected.medical_notes|default:"None on file" }}</dd></div>
+      </dl>
+    </div>
+
+    <div class="panel" id="background">
+      <h2>Academic background</h2>
+      {% if selected.academic %}
+      <dl class="facts">
+        <div><dt>Previous school</dt><dd>{{ selected.academic.previous_school|default:"—" }}</dd></div>
+        <div><dt>Last grade completed</dt><dd>{{ selected.academic.last_grade_completed|default:"—" }}</dd></div>
+        <div><dt>Year completed</dt><dd>{{ selected.academic.year_completed|default:"—" }}</dd></div>
+        <div><dt>General average</dt><dd>{{ selected.academic.general_average|default:"—" }}</dd></div>
+        <div class="wide"><dt>Honors</dt><dd>{{ selected.academic.honors|default:"None" }}</dd></div>
+      </dl>
+      {% else %}
+        <p class="empty">No academic record yet. Add one in the admin site.</p>
+      {% endif %}
+
+      <h2>Family &amp; guardians</h2>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Relationship</th><th>Occupation</th><th>Contact</th></tr></thead>
+        <tbody>
+        {% for g in selected.guardians.all %}
+          <tr>
+            <td>{{ g.name }}{% if g.is_primary %} <span class="tag">Primary</span>{% endif %}</td>
+            <td>{{ g.relationship }}</td>
+            <td>{{ g.occupation|default:"—" }}</td>
+            <td>{{ g.contact_number|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="empty">No guardians on file.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="enrollment">
+      <dl class="facts">
+        <div><dt>Status</dt><dd>{{ selected.get_status_display }}</dd></div>
+        <div><dt>Date enrolled</dt><dd>{{ selected.date_enrolled|date:"F j, Y"|default:"Not yet enrolled" }}</dd></div>
+        <div><dt>Class</dt><dd>{{ selected.school_class.name|default:"—" }}</dd></div>
+        <div><dt>School year</dt><dd>{{ selected.school_class.school_year|default:"—" }}</dd></div>
+        <div><dt>Adviser</dt><dd>{{ selected.school_class.adviser|default:"—" }}</dd></div>
+      </dl>
+    </div>
+
+    <p><a class="btn" href="{% url 'admin:students_student_change' selected.pk %}">Edit in admin</a></p>
+
+  {% else %}
+    <div class="placeholder">
+      <h1>Select a student</h1>
+      <p class="muted">Choose a name from the list to see their personal, background, and enrollment details.</p>
+    </div>
+  {% endif %}
+  </section>
+</main>
+
+<script>
+  document.querySelectorAll('.tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tabs button, .panel').forEach(function (el) { el.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+{% endblock %}
